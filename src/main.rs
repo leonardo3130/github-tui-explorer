@@ -1,59 +1,84 @@
-mod github;
-mod models;
-mod ui;
-
 use crossterm::{
-    event::{self, Event, KeyCode},
+    event::KeyCode,
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use dotenvy::dotenv;
-use github::fetch_repos;
-use ratatui::Terminal;
-use ratatui::backend::CrosstermBackend;
-use std::env;
+
+use crossterm::event;
+use crossterm::event::Event;
+
+use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io;
-use tokio::time::{self, Duration};
+use std::time::Duration;
+use tokio;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    dotenv().ok(); // loads variables from .env
+pub mod app;
+pub mod events;
+pub mod github;
+pub mod models;
+pub mod ui;
 
-    let username = env::var("GITHUB_USERNAME").expect("missing GITHUB_USERNAME");
-    let token = env::var("GITHUB_TOKEN").expect("missing GITHUB_TOKEN");
+use app::App;
+use app::AppMode;
 
+use dotenvy::dotenv;
+use std::env;
+
+async fn run_app(username: &str, token: &str) -> io::Result<()> {
+    // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut interval = time::interval(Duration::from_secs(30));
-    let mut repos = fetch_repos(username.as_str(), token.as_str()).await?;
+    // Create app
+    let mut app = App::new(username.to_string(), token.to_string())
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
+    // Load initial data
+    app.load_user_repos().await;
+
+    // Main loop
     loop {
-        ui::render_ui(&mut terminal, &repos)?;
+        terminal.draw(|f| ui::render_ui(f, &mut app))?;
 
-        if event::poll(Duration::from_millis(200))? {
+        if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
                 if key.code == KeyCode::Char('q') {
                     break;
                 }
-            }
-        }
 
-        tokio::select! {
-            _ = interval.tick() => {
-                if let Ok(new_repos) = fetch_repos(username.as_str(), token.as_str()).await {
-                    repos = new_repos;
+                match app.mode {
+                    AppMode::RepoList => events::handle_repo_list_keys(&mut app, key),
+                    AppMode::RepoDetail => events::handle_repo_detail_keys(&mut app, key),
+                    AppMode::Search => {
+                        if key.code == KeyCode::Enter {
+                            app.search_repositories().await;
+                        } else {
+                            events::handle_search_keys(&mut app, key);
+                        }
+                    }
                 }
             }
         }
     }
 
-    // cleanup
+    // Restore terminal
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
+
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenv().ok(); // loads variables from .env
+
+    let username = env::var("GITHUB_USERNAME").expect("missing GITHUB_USERNAME");
+    let token = env::var("GITHUB_TOKEN").expect("missing GITHUB_TOKEN");
+
+    run_app(username.as_str(), token.as_str()).await?;
     Ok(())
 }

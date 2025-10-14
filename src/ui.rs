@@ -1,50 +1,173 @@
-use crate::models::Repo;
+use crate::app::App;
+use crate::app::AppMode;
+use crate::app::LoadingState;
 use ratatui::{
-    Terminal,
-    backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout},
-    style::{Color, Style},
-    widgets::{Block, Borders, Row, Table},
+    Frame,
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    // text::{Line, Span, Text},
+    widgets::{Block, Borders, Paragraph, Row, Table, Wrap},
 };
 
-pub fn render_ui(
-    terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
-    repos: &[Repo],
-) -> anyhow::Result<()> {
-    terminal.draw(|f| {
-        let size = f.area();
+pub fn render_ui(f: &mut Frame, app: &mut App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // Header
+            Constraint::Min(0),    // Main content
+            Constraint::Length(3), // Footer
+        ])
+        .split(f.area());
 
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Min(0)].as_ref())
-            .split(size);
+    render_header(f, chunks[0], app);
 
-        let header = Row::new(vec!["Name", "⭐ Stars", "🍴 Forks", "🐛 Issues"])
-            .style(Style::default().fg(Color::Yellow));
+    match app.mode {
+        AppMode::RepoList => render_repo_list(f, chunks[1], app),
+        AppMode::RepoDetail => render_repo_detail(f, chunks[1], app),
+        AppMode::Search => render_search_input(f, chunks[1], app),
+    }
 
-        let rows = repos.iter().map(|r| {
-            Row::new(vec![
-                r.full_name.clone(),
-                r.stargazers_count.to_string(),
-                r.forks_count.to_string(),
-                r.open_issues_count.to_string(),
-            ])
-        });
+    render_footer(f, chunks[2], app);
+}
 
-        let widths = [
-            Constraint::Percentage(40),
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
-        ];
+fn render_header(f: &mut Frame, area: Rect, app: &App) {
+    let title = match app.mode {
+        AppMode::RepoList => format!("GitHub Repos - {}", app.user),
+        AppMode::RepoDetail => "Repository Details".to_string(),
+        AppMode::Search => "Search Repositories".to_string(),
+    };
 
-        let table = Table::new(rows, widths).header(header).block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("GitHub Repositories"),
+    let header = Paragraph::new(title)
+        .style(
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
+        .block(Block::default().borders(Borders::ALL));
+
+    f.render_widget(header, area);
+}
+
+fn render_repo_list(f: &mut Frame, area: Rect, app: &mut App) {
+    match &app.loading_state {
+        LoadingState::Loading => {
+            let loading = Paragraph::new("Loading repositories...")
+                .style(Style::default().fg(Color::Yellow))
+                .block(Block::default().borders(Borders::ALL).title("Repositories"));
+            f.render_widget(loading, area);
+        }
+        LoadingState::Error(err) => {
+            let error = Paragraph::new(format!("Error: {}", err))
+                .style(Style::default().fg(Color::Red))
+                .block(Block::default().borders(Borders::ALL).title("Error"));
+            f.render_widget(error, area);
+        }
+        _ => {
+            if app.repos.is_empty() {
+                let empty = Paragraph::new("No repositories found")
+                    .style(Style::default().fg(Color::Gray))
+                    .block(Block::default().borders(Borders::ALL).title("Repositories"));
+                f.render_widget(empty, area);
+                return;
+            }
+
+            let header = Row::new(vec!["Name", "Stars", "Language", "Description"])
+                .style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                )
+                .bottom_margin(1);
+
+            let rows = app.repos.iter().map(|repo| {
+                Row::new(vec![
+                    repo.full_name.clone(),
+                    repo.stargazers_count.to_string(),
+                    repo.language.as_deref().unwrap_or("N/A").to_string(),
+                    repo.description.as_deref().unwrap_or("").to_string(),
+                ])
+            });
+
+            let table = Table::new(
+                rows,
+                [
+                    Constraint::Percentage(20),
+                    Constraint::Length(8),
+                    Constraint::Length(15),
+                    Constraint::Percentage(57),
+                ],
+            )
+            .header(header)
+            .block(Block::default().borders(Borders::ALL).title("Repositories"))
+            .row_highlight_style(
+                Style::default()
+                    .bg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .highlight_symbol(">> ");
+
+            f.render_stateful_widget(table, area, &mut app.table_state);
+        }
+    }
+}
+
+fn render_repo_detail(f: &mut Frame, area: Rect, app: &App) {
+    if let Some(repo) = &app.selected_repo {
+        let details = format!(
+            "Name: {}\n\
+             Stars: ⭐ {}\n\
+             Forks: 🍴 {}\n\
+             Language: {}\n\
+             Created: {}\n\
+             Updated: {}\n\n\
+             Description:\n{}\n\n\
+             URL: {}",
+            repo.full_name,
+            // repo.owner.login,
+            repo.stargazers_count,
+            repo.forks_count,
+            repo.language.as_deref().unwrap_or("N/A"),
+            // repo.license
+            //     .as_ref()
+            //     .map(|l| l.name.as_str())
+            //     .unwrap_or("N/A"),
+            repo.created_at,
+            repo.updated_at,
+            repo.description.as_deref().unwrap_or("No description"),
+            repo.html_url
         );
 
-        f.render_widget(table, chunks[0]);
-    })?;
-    Ok(())
+        let paragraph = Paragraph::new(details)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Repository Details"),
+            )
+            .wrap(Wrap { trim: true })
+            .scroll((app.scroll_offset, 0));
+
+        f.render_widget(paragraph, area);
+    }
+}
+
+fn render_search_input(f: &mut Frame, area: Rect, app: &App) {
+    let input = Paragraph::new(app.search_input.as_str())
+        .style(Style::default().fg(Color::Yellow))
+        .block(Block::default().borders(Borders::ALL).title("Search Query"));
+
+    f.render_widget(input, area);
+}
+
+fn render_footer(f: &mut Frame, area: Rect, app: &App) {
+    let help_text = match app.mode {
+        AppMode::RepoList => "↑/↓: Navigate | Enter: View Details | /: Search | q: Quit",
+        AppMode::RepoDetail => "↑/↓: Scroll | Esc: Back | q: Quit",
+        AppMode::Search => "Type to search | Enter: Execute | Esc: Cancel",
+    };
+
+    let footer = Paragraph::new(help_text)
+        .style(Style::default().fg(Color::Gray))
+        .block(Block::default().borders(Borders::ALL));
+
+    f.render_widget(footer, area);
 }

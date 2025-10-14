@@ -10,4 +10,7 @@ pub struct Repo {
     pub language: Option<String>,
     pub open_issues_count: u32,
     pub updated_at: String,
+    pub created_at: String,
+    pub html_url: String,
+    pub license: String,
 }
