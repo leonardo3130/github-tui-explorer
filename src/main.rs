@@ -1,4 +1,5 @@
 mod github;
+mod models;
 mod ui;
 
 use crossterm::{

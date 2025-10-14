@@ -1,21 +1,24 @@
+use crate::models::Repo;
 use reqwest::Client;
-use serde::Deserialize; // adjust path as needed
+use serde::Deserialize;
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct Repo {
-    pub name: String,
-    pub stargazers_count: u64,
-    pub forks_count: u64,
-    pub open_issues_count: u64,
+// Response structure for search API
+#[derive(Deserialize)]
+struct SearchResponse {
+    items: Vec<Repo>,
+    total_count: u32,
 }
 
-pub async fn fetch_repos(username: &str, token: &str) -> Result<Vec<Repo>, reqwest::Error> {
-    let client = Client::builder()
-        .user_agent("gte/0.1") // important for GitHub API
-        .build()?;
+// Reusable client builder
+fn build_client() -> Result<Client, reqwest::Error> {
+    Client::builder().user_agent("gte/0.1").build()
+}
 
-    let mut repos: Vec<Repo> = Vec::new();
-    let mut page: u32 = 1;
+// Get public repos for a user (with pagination support)
+pub async fn fetch_repos(username: &str) -> Result<Vec<Repo>, reqwest::Error> {
+    let client = build_client()?;
+    let mut all_repos = Vec::new();
+    let mut page = 1;
 
     loop {
         let url = format!(
@@ -23,24 +26,74 @@ pub async fn fetch_repos(username: &str, token: &str) -> Result<Vec<Repo>, reqwe
             username, page
         );
 
-        let resp = client
+        let page_repos = client
             .get(&url)
-            .bearer_auth(token)
             .header("Accept", "application/vnd.github+json")
             .send()
             .await?
-            .error_for_status()?; // convert HTTP error codes into Err
-
-        // Parse JSON for this page
-        let mut page_repos = resp.json::<Vec<Repo>>().await?;
+            .error_for_status()?
+            .json::<Vec<Repo>>()
+            .await?;
 
         if page_repos.is_empty() {
             break;
         }
 
-        repos.append(&mut page_repos);
+        all_repos.extend(page_repos);
         page += 1;
     }
 
-    Ok(repos)
+    Ok(all_repos)
+}
+
+// Get a repo's details
+pub async fn fetch_repo(username: &str, repo: &str) -> Result<Repo, reqwest::Error> {
+    let client = build_client()?;
+    let url = format!("https://api.github.com/repos/{}/{}", username, repo);
+
+    client
+        .get(&url)
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<Repo>()
+        .await
+}
+
+// Get private repos for current user
+pub async fn fetch_private_repos(token: &str) -> Result<Vec<Repo>, reqwest::Error> {
+    let client = build_client()?;
+    let url = "https://api.github.com/user/repos?per_page=100&affiliation=owner,collaborator";
+
+    client
+        .get(url)
+        .bearer_auth(token)
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<Vec<Repo>>()
+        .await
+}
+
+// Search repositories
+pub async fn search_repos(query: &str) -> Result<Vec<Repo>, reqwest::Error> {
+    let client = build_client()?;
+    let encoded_query = urlencoding::encode(query);
+    let url = format!(
+        "https://api.github.com/search/repositories?q={}&per_page=100",
+        encoded_query
+    );
+
+    let search_response = client
+        .get(&url)
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<SearchResponse>()
+        .await?;
+
+    Ok(search_response.items)
 }

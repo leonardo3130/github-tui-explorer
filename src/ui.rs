@@ -1,4 +1,4 @@
-use crate::github::Repo;
+use crate::models::Repo;
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
@@ -24,7 +24,7 @@ pub fn render_ui(
 
         let rows = repos.iter().map(|r| {
             Row::new(vec![
-                r.name.clone(),
+                r.full_name.clone(),
                 r.stargazers_count.to_string(),
                 r.forks_count.to_string(),
                 r.open_issues_count.to_string(),
