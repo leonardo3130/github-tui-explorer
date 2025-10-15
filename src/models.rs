@@ -12,5 +12,4 @@ pub struct Repo {
     pub updated_at: String,
     pub created_at: String,
     pub html_url: String,
-    pub license: String,
 }
