@@ -50,7 +50,13 @@ async fn run_app(username: &str, token: &str) -> io::Result<()> {
                 }
 
                 match app.mode {
-                    AppMode::RepoList => events::handle_repo_list_keys(&mut app, key),
+                    AppMode::RepoList => {
+                        if key.code == KeyCode::Enter {
+                            app.select_current_repo().await;
+                        } else {
+                            events::handle_repo_list_keys(&mut app, key);
+                        }
+                    },
                     AppMode::RepoDetail => events::handle_repo_detail_keys(&mut app, key),
                     AppMode::Search => {
                         if key.code == KeyCode::Enter {

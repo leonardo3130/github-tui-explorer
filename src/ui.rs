@@ -95,7 +95,7 @@ fn render_repo_list(f: &mut Frame, area: Rect, app: &mut App) {
                     repo.full_name.clone(),
                     repo.stargazers_count.to_string(),
                     repo.language.as_deref().unwrap_or("N/A").to_string(),
-                    repo.description.as_deref().unwrap_or("").to_string(),
+                    repo.description.as_deref().unwrap_or("N/A").to_string(),
                 ])
             });
 
@@ -122,42 +122,98 @@ fn render_repo_list(f: &mut Frame, area: Rect, app: &mut App) {
     }
 }
 
-fn render_repo_detail(f: &mut Frame, area: Rect, app: &App) {
-    if let Some(repo) = &app.selected_repo {
-        let details = format!(
-            "Name: {}\n\
-             Stars: ⭐ {}\n\
-             Forks: 🍴 {}\n\
-             Language: {}\n\
-             Created: {}\n\
-             Updated: {}\n\n\
-             Description:\n{}\n\n\
-             URL: {}",
-            repo.full_name,
-            // repo.owner.login,
-            repo.stargazers_count,
-            repo.forks_count,
-            repo.language.as_deref().unwrap_or("N/A"),
-            // repo.license
-            //     .as_ref()
-            //     .map(|l| l.name.as_str())
-            //     .unwrap_or("N/A"),
-            repo.created_at,
-            repo.updated_at,
-            repo.description.as_deref().unwrap_or("No description"),
-            repo.html_url
-        );
+fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
+    match &app.loading_state {
+        LoadingState::Loading => {
+            let loading = Paragraph::new("Loading repositories...")
+                .style(Style::default().fg(Color::Yellow))
+                .block(Block::default().borders(Borders::ALL).title("Repositories"));
+            f.render_widget(loading, area);
+        }
+        LoadingState::Error(err) => {
+            let error = Paragraph::new(format!("Error: {}", err))
+                .style(Style::default().fg(Color::Red))
+                .block(Block::default().borders(Borders::ALL).title("Error"));
+            f.render_widget(error, area);
+        }
+        _ => {
+            if let Some(repo) = &app.selected_repo {
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .margin(1)
+                    .constraints([
+                        Constraint::Percentage(30), // repo info
+                        Constraint::Percentage(70), // issues
+                                                    // Constraint::Percentage(x), PRs
+                    ])
+                    .split(area);
 
-        let paragraph = Paragraph::new(details)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title("Repository Details"),
-            )
-            .wrap(Wrap { trim: true })
-            .scroll((app.scroll_offset, 0));
+                let details = format!(
+                    "Name: {}\n\
+                        Stars: ⭐ {}\n\
+                        Forks: 🍴 {}\n\
+                        Language: {}\n\
+                        Created: {}\n\
+                        Updated: {}\n\n\
+                        Description:\n{}\n\n\
+                        URL: {}",
+                    repo.full_name,
+                    repo.stargazers_count,
+                    repo.forks_count,
+                    repo.language.as_deref().unwrap_or("N/A"),
+                    repo.created_at,
+                    repo.updated_at,
+                    repo.description.as_deref().unwrap_or("No description"),
+                    repo.html_url
+                );
 
-        f.render_widget(paragraph, area);
+                let paragraph = Paragraph::new(details)
+                    .block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .title("Repository Details"),
+                    )
+                    .wrap(Wrap { trim: true })
+                    .scroll((app.scroll_offset, 0));
+
+                let header = Row::new(vec!["Title", "Body", "State", "URL"])
+                    .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                    .bottom_margin(1)
+                    .top_margin(2);
+
+                let rows = app.issues.clone();
+
+                let table_rows = rows.iter().map(|issue| {
+                    Row::new(vec![
+                        issue.title.clone(),
+                        issue.body.clone().unwrap_or(String::from("N/A")),
+                        issue.state.clone(),
+                        issue.html_url.clone(),
+                    ])
+                });
+
+                let table = Table::new(
+                    table_rows,
+                    [
+                        Constraint::Percentage(10),
+                        Constraint::Length(50),
+                        Constraint::Length(8),
+                        Constraint::Percentage(32),
+                    ],
+                )
+                .header(header)
+                .block(Block::default().borders(Borders::ALL).title("Issues"))
+                .row_highlight_style(
+                    Style::default()
+                        .bg(Color::DarkGray)
+                        .add_modifier(Modifier::BOLD),
+                )
+                .highlight_symbol(">! ");
+
+                f.render_widget(paragraph, chunks[0]);
+                f.render_stateful_widget(table, chunks[1], &mut app.issue_table_state);
+            }
+        }
     }
 }
 

@@ -1,4 +1,7 @@
-use crate::github::{fetch_repo, fetch_repos, search_repos};
+use crate::{
+    github::{fetch_repos, get_repo_issues, search_repos},
+    models::Issue,
+};
 use ratatui::widgets::TableState;
 
 use crate::models::Repo;
@@ -29,11 +32,14 @@ pub struct App {
     // data
     pub repos: Vec<Repo>,
     pub selected_repo: Option<Repo>,
+    pub issues: Vec<Issue>,
+    pub selected_issue: Option<Issue>,
 
     // UI State
     pub table_state: TableState,
     pub loading_state: LoadingState,
     pub search_input: String,
+    pub issue_table_state: TableState,
 
     // scrolling
     pub scroll_offset: u16,
@@ -42,7 +48,9 @@ pub struct App {
 impl App {
     pub fn new(username: String, token: String) -> Result<Self, reqwest::Error> {
         let mut table_state = TableState::default();
+        let mut issue_table_state = TableState::default();
         table_state.select(Some(0));
+        issue_table_state.select(Some(0));
 
         Ok(Self {
             user: username,
@@ -51,7 +59,10 @@ impl App {
             should_quit: false,
             repos: Vec::new(),
             selected_repo: None,
+            selected_issue: None,
+            issues: Vec::new(),
             table_state,
+            issue_table_state,
             loading_state: LoadingState::Idle,
             search_input: String::new(),
             scroll_offset: 0,
@@ -93,11 +104,53 @@ impl App {
         self.table_state.select(Some(i));
     }
 
-    pub fn select_current_repo(&mut self) {
+    pub fn next_issue(&mut self) {
+        if self.issues.is_empty() {
+            return;
+        }
+        let i = match self.issue_table_state.selected() {
+            Some(i) => {
+                if i >= self.issues.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.issue_table_state.select(Some(i));
+    }
+
+    pub fn previous_issue(&mut self) {
+        if self.issues.is_empty() {
+            return;
+        }
+        let i = match self.issue_table_state.selected() {
+            Some(i) => {
+                if i >= self.issues.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.issue_table_state.select(Some(i));
+    }
+
+    pub async fn select_current_repo(&mut self) {
         if let Some(i) = self.table_state.selected() {
             self.selected_repo = self.repos.get(i).cloned();
+            self.load_selected_repo_issues().await;
             self.mode = AppMode::RepoDetail;
+
             self.scroll_offset = 0;
+        }
+    }
+
+    pub fn select_current_issue(&mut self) {
+        if let Some(i) = self.issue_table_state.selected() {
+            self.selected_issue = self.issues.get(i).cloned();
         }
     }
 
@@ -136,7 +189,6 @@ impl App {
         self.loading_state = LoadingState::Loading;
         self.mode = AppMode::RepoList;
 
-        // Call the simple function from your api module
         match search_repos(&self.search_input).await {
             Ok(repos) => {
                 self.repos = repos;
@@ -151,13 +203,16 @@ impl App {
         }
     }
 
-    pub async fn load_repo_details(&mut self, username: &str, repo_name: &str) {
+    pub async fn load_selected_repo_issues(&mut self) {
+        if self.selected_repo.is_none() {
+            return;
+        }
+
         self.loading_state = LoadingState::Loading;
 
-        // Call the simple function from your api module
-        match fetch_repo(username, repo_name).await {
-            Ok(repo) => {
-                self.selected_repo = Some(repo);
+        match get_repo_issues(&self.selected_repo.clone().unwrap().full_name, &self.token).await {
+            Ok(issues) => {
+                self.issues = issues;
                 self.loading_state = LoadingState::Success;
             }
             Err(e) => {

@@ -20,7 +20,13 @@ pub fn handle_repo_list_keys(app: &mut App, key: KeyEvent) {
     match key.code {
         KeyCode::Down | KeyCode::Char('j') => app.next_repo(),
         KeyCode::Up | KeyCode::Char('k') => app.previous_repo(),
-        KeyCode::Enter => app.select_current_repo(),
+        KeyCode::Char('/') => app.enter_search_mode(),
+        _ => {}
+    }
+}
+
+fn handle_issue_list_keys(app: &mut App, key: KeyEvent) {
+    match key.code {
         KeyCode::Char('/') => app.enter_search_mode(),
         _ => {}
     }
@@ -33,7 +39,7 @@ pub fn handle_repo_detail_keys(app: &mut App, key: KeyEvent) {
         }
         KeyCode::Up | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
         KeyCode::Esc => app.back_to_list(),
-        _ => {}
+        _ => handle_issue_list_keys(app, key),
     }
 }
 

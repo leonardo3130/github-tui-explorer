@@ -1,4 +1,4 @@
-use crate::models::Repo;
+use crate::models::{Issue, Repo};
 use reqwest::Client;
 use serde::Deserialize;
 
@@ -6,7 +6,6 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 struct SearchResponse {
     items: Vec<Repo>,
-    total_count: u32,
 }
 
 // Reusable client builder
@@ -46,21 +45,6 @@ pub async fn fetch_repos(username: &str) -> Result<Vec<Repo>, reqwest::Error> {
     Ok(all_repos)
 }
 
-// Get a repo's details
-pub async fn fetch_repo(username: &str, repo: &str) -> Result<Repo, reqwest::Error> {
-    let client = build_client()?;
-    let url = format!("https://api.github.com/repos/{}/{}", username, repo);
-
-    client
-        .get(&url)
-        .header("Accept", "application/vnd.github+json")
-        .send()
-        .await?
-        .error_for_status()?
-        .json::<Repo>()
-        .await
-}
-
 // Get private repos for current user
 pub async fn fetch_private_repos(token: &str) -> Result<Vec<Repo>, reqwest::Error> {
     let client = build_client()?;
@@ -96,4 +80,20 @@ pub async fn search_repos(query: &str) -> Result<Vec<Repo>, reqwest::Error> {
         .await?;
 
     Ok(search_response.items)
+}
+
+// Get repo issues
+pub async fn get_repo_issues(repo: &str, token: &str) -> Result<Vec<Issue>, reqwest::Error> {
+    let client = build_client()?;
+    let url = format!("https://api.github.com/repos/{}/issues", repo);
+
+    client
+        .get(&url)
+        .bearer_auth(token)
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<Vec<Issue>>()
+        .await
 }
