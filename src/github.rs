@@ -85,8 +85,8 @@ pub async fn search_repos(query: &str) -> Result<Vec<Repo>, reqwest::Error> {
 // Get repo issues
 pub async fn get_repo_issues(repo: &str, token: &str) -> Result<Vec<Issue>, reqwest::Error> {
     let client = build_client()?;
-    let url = format!("https://api.github.com/repos/{}/issues", repo);
 
+    let url = format!("https://api.github.com/repos/{}/issues?state=all", repo);
     client
         .get(&url)
         .bearer_auth(token)
