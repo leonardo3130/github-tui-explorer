@@ -3,19 +3,19 @@ use crate::app::AppMode;
 use crate::app::LoadingState;
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    // text::{Line, Span, Text},
-    widgets::{Block, Borders, Paragraph, Row, Table, Wrap},
+    text::Line,
+    widgets::{Block, Borders, Padding, Paragraph, Row, Table, Wrap},
 };
 
 pub fn render_ui(f: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3), // Header
-            Constraint::Min(0),    // Main content
-            Constraint::Length(3), // Footer
+            Constraint::Percentage(10), // Header
+            Constraint::Min(0),         // Main content
+            Constraint::Length(3),      // Footer
         ])
         .split(f.area());
 
@@ -32,9 +32,11 @@ pub fn render_ui(f: &mut Frame, app: &mut App) {
 
 fn render_header(f: &mut Frame, area: Rect, app: &App) {
     let title = match app.mode {
-        AppMode::RepoList => format!("GitHub Repos - {}", app.user),
-        AppMode::RepoDetail => "Repository Details".to_string(),
-        AppMode::Search => "Search Repositories".to_string(),
+        AppMode::RepoList => {
+            Line::from(format!("GitHub Repos - {}", app.user)).alignment(Alignment::Center)
+        }
+        AppMode::RepoDetail => Line::from("Repository Details").alignment(Alignment::Center),
+        AppMode::Search => Line::from("Search Repositories").alignment(Alignment::Center),
     };
 
     let header = Paragraph::new(title)
@@ -43,7 +45,16 @@ fn render_header(f: &mut Frame, area: Rect, app: &App) {
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )
-        .block(Block::default().borders(Borders::ALL));
+        .block(
+            Block::new()
+                .padding(Padding::new(
+                    0,               // left
+                    0,               // right
+                    area.height / 4, // top
+                    0,               // bottom
+                ))
+                .borders(Borders::ALL),
+        );
 
     f.render_widget(header, area);
 }
