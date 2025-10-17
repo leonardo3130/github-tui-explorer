@@ -228,7 +228,9 @@ fn render_search_input(f: &mut Frame, area: Rect, app: &App) {
 fn render_footer(f: &mut Frame, area: Rect, app: &App) {
     let help_text = match app.mode {
         AppMode::RepoList => "↑/↓: Navigate | Enter: View Details | /: Search | q: Quit",
-        AppMode::RepoDetail => "↑/↓: Scroll | Esc: Back | q: Quit",
+        AppMode::RepoDetail => {
+            "↑/↓: Scroll | Esc: Back | q: Quit | Tab: toggle between repo issues, PRs and details"
+        }
         AppMode::Search => "Type to search | Enter: Execute | Esc: Cancel",
     };
 

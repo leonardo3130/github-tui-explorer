@@ -18,8 +18,8 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) -> bool {
 
 pub fn handle_repo_list_keys(app: &mut App, key: KeyEvent) {
     match key.code {
-        KeyCode::Down | KeyCode::Char('j') => app.next_repo(),
-        KeyCode::Up | KeyCode::Char('k') => app.previous_repo(),
+        KeyCode::Down | KeyCode::Char('j') => app.next(),
+        KeyCode::Up | KeyCode::Char('k') => app.previous(),
         KeyCode::Char('/') => app.enter_search_mode(),
         _ => {}
     }
@@ -35,10 +35,13 @@ fn handle_issue_list_keys(app: &mut App, key: KeyEvent) {
 pub fn handle_repo_detail_keys(app: &mut App, key: KeyEvent) {
     match key.code {
         KeyCode::Down | KeyCode::Char('j') => {
-            app.scroll_offset = app.scroll_offset.saturating_add(1)
+            app.next();
         }
-        KeyCode::Up | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
+        KeyCode::Up | KeyCode::Char('k') => {
+            app.previous();
+        }
         KeyCode::Esc => app.back_to_list(),
+        KeyCode::Tab => app.toggle_detail_mode(),
         _ => handle_issue_list_keys(app, key),
     }
 }
@@ -50,9 +53,6 @@ pub fn handle_search_keys(app: &mut App, key: KeyEvent) {
             app.search_input.pop();
         }
         KeyCode::Esc => app.back_to_list(),
-        KeyCode::Enter => {
-            // handled in the main loop with async
-        }
         _ => {}
     }
 }

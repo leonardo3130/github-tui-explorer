@@ -20,6 +20,11 @@ pub enum LoadingState {
     Error(String),
 }
 
+pub enum RepoDetailState {
+    Details,
+    Issues,
+}
+
 pub struct App {
     // auth
     pub user: String,
@@ -34,6 +39,7 @@ pub struct App {
     pub selected_repo: Option<Repo>,
     pub issues: Vec<Issue>,
     pub selected_issue: Option<Issue>,
+    pub detail_mode: RepoDetailState,
 
     // UI State
     pub table_state: TableState,
@@ -66,76 +72,61 @@ impl App {
             loading_state: LoadingState::Idle,
             search_input: String::new(),
             scroll_offset: 0,
+            detail_mode: RepoDetailState::Details,
         })
     }
 
     // navigation
-    pub fn next_repo(&mut self) {
-        if self.repos.is_empty() {
+    fn select_next_in(state: &mut TableState, len: usize) {
+        if len == 0 {
             return;
         }
-        let i = match self.table_state.selected() {
-            Some(i) => {
-                if i >= self.repos.len() - 1 {
-                    0
-                } else {
-                    i + 1
-                }
-            }
-            None => 0,
+        let i = match state.selected() {
+            Some(i) if i + 1 < len => i + 1,
+            _ => 0,
         };
-        self.table_state.select(Some(i));
+        state.select(Some(i));
     }
 
-    pub fn previous_repo(&mut self) {
-        if self.repos.is_empty() {
+    fn select_previous_in(state: &mut TableState, len: usize) {
+        if len == 0 {
             return;
         }
-        let i = match self.table_state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    self.repos.len() - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
+        let i = match state.selected() {
+            Some(0) | None => len - 1,
+            Some(i) => i - 1,
         };
-        self.table_state.select(Some(i));
+        state.select(Some(i));
     }
 
-    pub fn next_issue(&mut self) {
-        if self.issues.is_empty() {
-            return;
-        }
-        let i = match self.issue_table_state.selected() {
-            Some(i) => {
-                if i >= self.issues.len() - 1 {
-                    0
-                } else {
-                    i + 1
+    pub fn next(&mut self) {
+        match self.mode {
+            AppMode::RepoList => Self::select_next_in(&mut self.table_state, self.repos.len()),
+            AppMode::RepoDetail => match self.detail_mode {
+                RepoDetailState::Details => {
+                    self.scroll_offset = self.scroll_offset.saturating_add(1)
                 }
-            }
-            None => 0,
-        };
-        self.issue_table_state.select(Some(i));
+                RepoDetailState::Issues => {
+                    Self::select_next_in(&mut self.issue_table_state, self.issues.len())
+                }
+            },
+            AppMode::Search => {}
+        }
     }
 
-    pub fn previous_issue(&mut self) {
-        if self.issues.is_empty() {
-            return;
-        }
-        let i = match self.issue_table_state.selected() {
-            Some(i) => {
-                if i >= self.issues.len() - 1 {
-                    0
-                } else {
-                    i + 1
+    pub fn previous(&mut self) {
+        match self.mode {
+            AppMode::RepoList => Self::select_previous_in(&mut self.table_state, self.repos.len()),
+            AppMode::RepoDetail => match self.detail_mode {
+                RepoDetailState::Details => {
+                    self.scroll_offset = self.scroll_offset.saturating_sub(1)
                 }
-            }
-            None => 0,
-        };
-        self.issue_table_state.select(Some(i));
+                RepoDetailState::Issues => {
+                    Self::select_previous_in(&mut self.issue_table_state, self.issues.len())
+                }
+            },
+            AppMode::Search => {}
+        }
     }
 
     pub async fn select_current_repo(&mut self) {
@@ -218,6 +209,13 @@ impl App {
             Err(e) => {
                 self.loading_state = LoadingState::Error(e.to_string());
             }
+        }
+    }
+
+    pub fn toggle_detail_mode(&mut self) {
+        match self.detail_mode {
+            RepoDetailState::Details => self.detail_mode = RepoDetailState::Issues,
+            RepoDetailState::Issues => self.detail_mode = RepoDetailState::Details,
         }
     }
 }
