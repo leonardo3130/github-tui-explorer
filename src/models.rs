@@ -25,6 +25,15 @@ pub struct Issue {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct PR {
+    pub number: u32,
+    pub state: String,
+    pub body: Option<String>,
+    pub title: String,
+    pub html_url: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct Label {
     pub url: String,
     pub description: Option<String>,

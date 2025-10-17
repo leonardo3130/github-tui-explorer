@@ -142,9 +142,9 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
                     .direction(Direction::Vertical)
                     .margin(1)
                     .constraints([
-                        Constraint::Percentage(30), // repo info
-                        Constraint::Percentage(70), // issues
-                                                    // Constraint::Percentage(x), PRs
+                        Constraint::Percentage(20), // repo info
+                        Constraint::Percentage(40), // issues
+                        Constraint::Percentage(40), // PRs
                     ])
                     .split(area);
 
@@ -176,14 +176,14 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
                     .wrap(Wrap { trim: true })
                     .scroll((app.scroll_offset, 0));
 
-                let header = Row::new(vec!["Title", "Body", "State", "URL"])
+                let issue_header = Row::new(vec!["Title", "Body", "State", "URL"])
                     .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
                     .bottom_margin(1)
                     .top_margin(2);
 
-                let rows = app.issues.clone();
+                let issues = app.issues.clone();
 
-                let table_rows = rows.iter().map(|issue| {
+                let issue_rows = issues.iter().map(|issue| {
                     Row::new(vec![
                         issue.title.clone(),
                         issue.body.clone().unwrap_or(String::from("N/A")),
@@ -192,8 +192,8 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
                     ])
                 });
 
-                let table = Table::new(
-                    table_rows,
+                let issue_table = Table::new(
+                    issue_rows,
                     [
                         Constraint::Percentage(10),
                         Constraint::Length(50),
@@ -201,7 +201,41 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
                         Constraint::Percentage(32),
                     ],
                 )
-                .header(header)
+                .header(issue_header)
+                .block(Block::default().borders(Borders::ALL).title("Issues"))
+                .row_highlight_style(
+                    Style::default()
+                        .bg(Color::DarkGray)
+                        .add_modifier(Modifier::BOLD),
+                )
+                .highlight_symbol(">! ");
+
+                let pr_header = Row::new(vec!["Title", "Body", "State", "URL"])
+                    .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                    .bottom_margin(1)
+                    .top_margin(2);
+
+                let prs = app.prs.clone();
+
+                let pr_rows = prs.iter().map(|pr| {
+                    Row::new(vec![
+                        pr.title.clone(),
+                        pr.body.clone().unwrap_or(String::from("N/A")),
+                        pr.state.clone(),
+                        pr.html_url.clone(),
+                    ])
+                });
+
+                let pr_table = Table::new(
+                    pr_rows,
+                    [
+                        Constraint::Percentage(10),
+                        Constraint::Length(50),
+                        Constraint::Length(8),
+                        Constraint::Percentage(32),
+                    ],
+                )
+                .header(pr_header)
                 .block(Block::default().borders(Borders::ALL).title("Issues"))
                 .row_highlight_style(
                     Style::default()
@@ -211,7 +245,8 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
                 .highlight_symbol(">! ");
 
                 f.render_widget(paragraph, chunks[0]);
-                f.render_stateful_widget(table, chunks[1], &mut app.issue_table_state);
+                f.render_stateful_widget(issue_table, chunks[1], &mut app.issue_table_state);
+                f.render_stateful_widget(pr_table, chunks[2], &mut app.pr_table_state);
             }
         }
     }

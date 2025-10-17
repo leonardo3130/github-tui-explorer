@@ -1,10 +1,7 @@
-use crate::{
-    github::{fetch_repos, get_repo_issues, search_repos},
-    models::Issue,
-};
+use crate::github::{fetch_repos, get_repo_issues, get_repo_prs, search_repos};
 use ratatui::widgets::TableState;
 
-use crate::models::Repo;
+use crate::models::{Issue, PR, Repo};
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppMode {
     RepoList,
@@ -23,6 +20,7 @@ pub enum LoadingState {
 pub enum RepoDetailState {
     Details,
     Issues,
+    PRs,
 }
 
 pub struct App {
@@ -39,6 +37,8 @@ pub struct App {
     pub selected_repo: Option<Repo>,
     pub issues: Vec<Issue>,
     pub selected_issue: Option<Issue>,
+    pub prs: Vec<PR>,
+    pub selected_pr: Option<PR>,
     pub detail_mode: RepoDetailState,
 
     // UI State
@@ -46,6 +46,7 @@ pub struct App {
     pub loading_state: LoadingState,
     pub search_input: String,
     pub issue_table_state: TableState,
+    pub pr_table_state: TableState,
 
     // scrolling
     pub scroll_offset: u16,
@@ -55,8 +56,10 @@ impl App {
     pub fn new(username: String, token: String) -> Result<Self, reqwest::Error> {
         let mut table_state = TableState::default();
         let mut issue_table_state = TableState::default();
+        let mut pr_table_state = TableState::default();
         table_state.select(Some(0));
         issue_table_state.select(Some(0));
+        pr_table_state.select(Some(0));
 
         Ok(Self {
             user: username,
@@ -64,11 +67,14 @@ impl App {
             mode: AppMode::RepoList,
             should_quit: false,
             repos: Vec::new(),
+            prs: Vec::new(),
             selected_repo: None,
             selected_issue: None,
+            selected_pr: None,
             issues: Vec::new(),
             table_state,
             issue_table_state,
+            pr_table_state,
             loading_state: LoadingState::Idle,
             search_input: String::new(),
             scroll_offset: 0,
@@ -109,6 +115,9 @@ impl App {
                 RepoDetailState::Issues => {
                     Self::select_next_in(&mut self.issue_table_state, self.issues.len())
                 }
+                RepoDetailState::PRs => {
+                    Self::select_next_in(&mut self.pr_table_state, self.prs.len())
+                }
             },
             AppMode::Search => {}
         }
@@ -124,6 +133,9 @@ impl App {
                 RepoDetailState::Issues => {
                     Self::select_previous_in(&mut self.issue_table_state, self.issues.len())
                 }
+                RepoDetailState::PRs => {
+                    Self::select_previous_in(&mut self.pr_table_state, self.prs.len())
+                }
             },
             AppMode::Search => {}
         }
@@ -133,6 +145,7 @@ impl App {
         if let Some(i) = self.table_state.selected() {
             self.selected_repo = self.repos.get(i).cloned();
             self.load_selected_repo_issues().await;
+            self.load_selected_repo_prs().await;
             self.mode = AppMode::RepoDetail;
 
             self.scroll_offset = 0;
@@ -212,10 +225,29 @@ impl App {
         }
     }
 
+    pub async fn load_selected_repo_prs(&mut self) {
+        if self.selected_repo.is_none() {
+            return;
+        }
+
+        self.loading_state = LoadingState::Loading;
+
+        match get_repo_prs(&self.selected_repo.clone().unwrap().full_name, &self.token).await {
+            Ok(prs) => {
+                self.prs = prs;
+                self.loading_state = LoadingState::Success;
+            }
+            Err(e) => {
+                self.loading_state = LoadingState::Error(e.to_string());
+            }
+        }
+    }
+
     pub fn toggle_detail_mode(&mut self) {
         match self.detail_mode {
             RepoDetailState::Details => self.detail_mode = RepoDetailState::Issues,
-            RepoDetailState::Issues => self.detail_mode = RepoDetailState::Details,
+            RepoDetailState::Issues => self.detail_mode = RepoDetailState::PRs,
+            RepoDetailState::PRs => self.detail_mode = RepoDetailState::Details,
         }
     }
 }
