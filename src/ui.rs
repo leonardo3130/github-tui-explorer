@@ -176,7 +176,7 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
                     .wrap(Wrap { trim: true })
                     .scroll((app.scroll_offset, 0));
 
-                let issue_header = Row::new(vec!["Title", "Body", "State", "URL"])
+                let issue_header = Row::new(vec!["Title", "Body", "State", "URL", "Labels"])
                     .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
                     .bottom_margin(1)
                     .top_margin(2);
@@ -189,6 +189,12 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
                         issue.body.clone().unwrap_or(String::from("N/A")),
                         issue.state.clone(),
                         issue.html_url.clone(),
+                        issue
+                            .labels
+                            .iter()
+                            .map(|label| label.name.clone())
+                            .collect::<Vec<String>>()
+                            .join(", "),
                     ])
                 });
 
@@ -196,9 +202,10 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
                     issue_rows,
                     [
                         Constraint::Percentage(10),
-                        Constraint::Length(50),
-                        Constraint::Length(8),
-                        Constraint::Percentage(32),
+                        Constraint::Length(40),
+                        Constraint::Length(6),
+                        Constraint::Percentage(22),
+                        Constraint::Percentage(22),
                     ],
                 )
                 .header(issue_header)
@@ -210,7 +217,7 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
                 )
                 .highlight_symbol(">! ");
 
-                let pr_header = Row::new(vec!["Title", "Body", "State", "URL"])
+                let pr_header = Row::new(vec!["Title", "Body", "State", "URL", "Labels"])
                     .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
                     .bottom_margin(1)
                     .top_margin(2);
