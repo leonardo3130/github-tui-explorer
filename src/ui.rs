@@ -6,17 +6,17 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     style::{Color, Modifier, Style},
     text::Line,
-    widgets::{Block, Borders, Padding, Paragraph, Row, Table, Wrap},
+    widgets::{Block, Borders, Clear, Padding, Paragraph, Row, Table, Wrap},
 };
 
 /// helper function to create a centered rect using up certain percentage of the available rect `r`
-// fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
-//     let vertical = Layout::vertical([Constraint::Percentage(percent_y)]).flex(Flex::Center);
-//     let horizontal = Layout::horizontal([Constraint::Percentage(percent_x)]).flex(Flex::Center);
-//     let [area] = vertical.areas(area);
-//     let [area] = horizontal.areas(area);
-//     area
-// }
+fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
+    let vertical = Layout::vertical([Constraint::Percentage(percent_y)]).flex(Flex::Center);
+    let horizontal = Layout::horizontal([Constraint::Percentage(percent_x)]).flex(Flex::Center);
+    let [area] = vertical.areas(area);
+    let [area] = horizontal.areas(area);
+    area
+}
 
 pub fn render_ui(f: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
@@ -34,7 +34,7 @@ pub fn render_ui(f: &mut Frame, app: &mut App) {
         AppMode::RepoList => render_repo_list(f, chunks[1], app),
         AppMode::RepoDetail => render_repo_detail(f, chunks[1], app),
         AppMode::Search => render_search_input(f, chunks[1], app),
-        AppMode::IssuePopUp => render_search_input(f, chunks[1], app),
+        AppMode::IssuePopUp => render_issue_popup(f, chunks[1], app),
     }
 
     render_footer(f, chunks[2], app);
@@ -280,6 +280,32 @@ fn render_search_input(f: &mut Frame, area: Rect, app: &App) {
         .block(Block::default().borders(Borders::ALL).title("Search Query"));
 
     f.render_widget(input, area);
+}
+
+fn render_issue_popup(f: &mut Frame, area: Rect, app: &App) {
+    let issue = app.selected_issue.clone().unwrap();
+    let details = format!(
+        "Title: {}\n\
+                        State: {}\n\
+                        Body: {}\n\
+                        URL: {}",
+        issue.title,
+        issue.state,
+        issue.body.unwrap_or(String::from("N/A")),
+        issue.html_url,
+    );
+
+    let paragraph = Paragraph::new(details)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(format!("Issue #{} details", issue.number)),
+        )
+        .wrap(Wrap { trim: true });
+
+    let area = popup_area(area, 80, 60);
+    f.render_widget(Clear, area); //remove background
+    f.render_widget(paragraph, area);
 }
 
 fn render_footer(f: &mut Frame, area: Rect, app: &App) {

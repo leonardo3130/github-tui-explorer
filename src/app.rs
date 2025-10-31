@@ -18,6 +18,7 @@ pub enum LoadingState {
     Error(String),
 }
 
+#[derive(PartialEq)]
 pub enum RepoDetailState {
     Details,
     Issues,
@@ -114,7 +115,8 @@ impl App {
                     self.scroll_offset = self.scroll_offset.saturating_add(1)
                 }
                 RepoDetailState::Issues => {
-                    Self::select_next_in(&mut self.issue_table_state, self.issues.len())
+                    Self::select_next_in(&mut self.issue_table_state, self.issues.len());
+                    self.select_current_issue();
                 }
                 RepoDetailState::PRs => {
                     Self::select_next_in(&mut self.pr_table_state, self.prs.len())
@@ -133,7 +135,8 @@ impl App {
                     self.scroll_offset = self.scroll_offset.saturating_sub(1)
                 }
                 RepoDetailState::Issues => {
-                    Self::select_previous_in(&mut self.issue_table_state, self.issues.len())
+                    Self::select_previous_in(&mut self.issue_table_state, self.issues.len());
+                    self.select_current_issue();
                 }
                 RepoDetailState::PRs => {
                     Self::select_previous_in(&mut self.pr_table_state, self.prs.len())
@@ -164,6 +167,10 @@ impl App {
     pub fn back_to_list(&mut self) {
         self.mode = AppMode::RepoList;
         self.selected_repo = None;
+    }
+
+    pub fn back_to_details(&mut self) {
+        self.mode = AppMode::RepoDetail;
     }
 
     pub fn enter_search_mode(&mut self) {
@@ -243,6 +250,12 @@ impl App {
             Err(e) => {
                 self.loading_state = LoadingState::Error(e.to_string());
             }
+        }
+    }
+
+    pub fn open_issue_popup(&mut self) {
+        if self.detail_mode == RepoDetailState::Issues {
+            self.mode = AppMode::IssuePopUp;
         }
     }
 

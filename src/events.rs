@@ -30,7 +30,7 @@ pub async fn handle_key_event(app: &mut App, key: KeyEvent) -> bool {
 
 pub fn handle_issue_popup_keys(app: &mut App, key: KeyEvent) {
     match key.code {
-        KeyCode::Esc => app.back_to_list(),
+        KeyCode::Esc => app.back_to_details(),
         _ => {}
     }
 }
@@ -61,6 +61,7 @@ pub fn handle_repo_detail_keys(app: &mut App, key: KeyEvent) {
         }
         KeyCode::Esc => app.back_to_list(),
         KeyCode::Tab => app.toggle_detail_mode(),
+        KeyCode::Enter => app.open_issue_popup(),
         _ => handle_issue_list_keys(app, key),
     }
 }
