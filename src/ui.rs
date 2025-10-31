@@ -1,12 +1,16 @@
+use std::str::FromStr;
+
 use crate::app::App;
 use crate::app::AppMode;
 use crate::app::LoadingState;
+use ratatui::text::Span;
+use ratatui::text::Text;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     style::{Color, Modifier, Style},
     text::Line,
-    widgets::{Block, Borders, Clear, Padding, Paragraph, Row, Table, Wrap},
+    widgets::{Block, Borders, Padding, Paragraph, Row, Table, Wrap},
 };
 
 /// helper function to create a centered rect using up certain percentage of the available rect `r`
@@ -283,12 +287,18 @@ fn render_search_input(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_issue_popup(f: &mut Frame, area: Rect, app: &App) {
+    let area = popup_area(area, 80, 60);
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(65), Constraint::Percentage(35)])
+        .split(area);
+
     let issue = app.selected_issue.clone().unwrap();
     let details = format!(
         "Title: {}\n\
-                        State: {}\n\
-                        Body: {}\n\
-                        URL: {}",
+        State: {}\n\
+        Body: {}\n\
+        URL: {}",
         issue.title,
         issue.state,
         issue.body.unwrap_or(String::from("N/A")),
@@ -303,9 +313,38 @@ fn render_issue_popup(f: &mut Frame, area: Rect, app: &App) {
         )
         .wrap(Wrap { trim: true });
 
-    let area = popup_area(area, 80, 60);
-    f.render_widget(Clear, area); //remove background
-    f.render_widget(paragraph, area);
+    let mut spans: Vec<Span> = Vec::new();
+
+    for (i, label) in issue.labels.iter().enumerate() {
+        if i > 0 {
+            spans.push(Span::from(","))
+        }
+
+        let ratatui_color = Color::from_str(
+            label
+                .color
+                .clone()
+                .unwrap_or(String::from("white"))
+                .as_str(),
+        );
+
+        let mut final_color = Color::White;
+
+        match ratatui_color {
+            Ok(color) => final_color = color,
+            Err(_) => {}
+        }
+
+        spans.push(Span::from(label.name.clone()).style(Style::default().fg(final_color)))
+    }
+
+    let labels_line = Line::from(spans);
+    let labels_text = Text::from(labels_line);
+    let labels_paragraph = Paragraph::new(labels_text)
+        .block(Block::default().borders(Borders::ALL).title("Issue Labels"));
+
+    f.render_widget(paragraph, chunks[0]);
+    f.render_widget(labels_paragraph, chunks[1]);
 }
 
 fn render_footer(f: &mut Frame, area: Rect, app: &App) {
