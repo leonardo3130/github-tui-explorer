@@ -3,11 +3,20 @@ use crate::app::AppMode;
 use crate::app::LoadingState;
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     style::{Color, Modifier, Style},
     text::Line,
     widgets::{Block, Borders, Padding, Paragraph, Row, Table, Wrap},
 };
+
+/// helper function to create a centered rect using up certain percentage of the available rect `r`
+// fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
+//     let vertical = Layout::vertical([Constraint::Percentage(percent_y)]).flex(Flex::Center);
+//     let horizontal = Layout::horizontal([Constraint::Percentage(percent_x)]).flex(Flex::Center);
+//     let [area] = vertical.areas(area);
+//     let [area] = horizontal.areas(area);
+//     area
+// }
 
 pub fn render_ui(f: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
@@ -25,18 +34,24 @@ pub fn render_ui(f: &mut Frame, app: &mut App) {
         AppMode::RepoList => render_repo_list(f, chunks[1], app),
         AppMode::RepoDetail => render_repo_detail(f, chunks[1], app),
         AppMode::Search => render_search_input(f, chunks[1], app),
+        AppMode::IssuePopUp => render_search_input(f, chunks[1], app),
     }
 
     render_footer(f, chunks[2], app);
 }
 
 fn render_header(f: &mut Frame, area: Rect, app: &App) {
+    if app.mode == AppMode::IssuePopUp {
+        return;
+    }
+
     let title = match app.mode {
         AppMode::RepoList => {
             Line::from(format!("GitHub Repos - {}", app.user)).alignment(Alignment::Center)
         }
         AppMode::RepoDetail => Line::from("Repository Details").alignment(Alignment::Center),
         AppMode::Search => Line::from("Search Repositories").alignment(Alignment::Center),
+        AppMode::IssuePopUp => Line::from("_").alignment(Alignment::Center),
     };
 
     let header = Paragraph::new(title)
@@ -204,8 +219,8 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
                         Constraint::Percentage(10),
                         Constraint::Length(40),
                         Constraint::Length(6),
-                        Constraint::Percentage(22),
-                        Constraint::Percentage(22),
+                        Constraint::Percentage(32),
+                        Constraint::Percentage(12),
                     ],
                 )
                 .header(issue_header)
@@ -217,7 +232,7 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
                 )
                 .highlight_symbol(">! ");
 
-                let pr_header = Row::new(vec!["Title", "Body", "State", "URL", "Labels"])
+                let pr_header = Row::new(vec!["Title", "Body", "State", "URL"])
                     .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
                     .bottom_margin(1)
                     .top_margin(2);
@@ -243,7 +258,7 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &mut App) {
                     ],
                 )
                 .header(pr_header)
-                .block(Block::default().borders(Borders::ALL).title("Issues"))
+                .block(Block::default().borders(Borders::ALL).title("PRs"))
                 .row_highlight_style(
                     Style::default()
                         .bg(Color::DarkGray)
@@ -274,6 +289,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
             "↑/↓: Scroll | Esc: Back | q: Quit | Tab: toggle between repo issues, PRs and details"
         }
         AppMode::Search => "Type to search | Enter: Execute | Esc: Cancel",
+        AppMode::IssuePopUp => "↑/↓: Scroll | Esc: Back | q: Quit",
     };
 
     let footer = Paragraph::new(help_text)

@@ -7,6 +7,7 @@ pub enum AppMode {
     RepoList,
     RepoDetail,
     Search,
+    IssuePopUp,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -120,6 +121,7 @@ impl App {
                 }
             },
             AppMode::Search => {}
+            AppMode::IssuePopUp => {}
         }
     }
 
@@ -138,6 +140,7 @@ impl App {
                 }
             },
             AppMode::Search => {}
+            AppMode::IssuePopUp => {}
         }
     }
 

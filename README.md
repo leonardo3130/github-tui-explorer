@@ -7,7 +7,7 @@ GTE is a fast, async terminal dashboard for exploring GitHub repositories, issue
 ## Features
 
 - Display repositories with stars, forks, and open issues
-- Multiple pages: Repos, Issues, Pull Requests
+- Multiple pages: Search, Search Results, Repo Info
 - Keyboard navigation
 - Built in Rust using async and TUI
 
@@ -44,6 +44,4 @@ cargo run
 
 ## TODO
 
-- show issues for a repo
-- show PRs for a repo
-- ...
+- show PR ans issue popup

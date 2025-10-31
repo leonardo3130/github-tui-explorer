@@ -1,5 +1,4 @@
 use crossterm::{
-    event::KeyCode,
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -19,10 +18,11 @@ pub mod models;
 pub mod ui;
 
 use app::App;
-use app::AppMode;
 
 use dotenvy::dotenv;
 use std::env;
+
+use crate::events::handle_key_event;
 
 async fn run_app(username: &str, token: &str) -> io::Result<()> {
     // Setup terminal
@@ -45,26 +45,8 @@ async fn run_app(username: &str, token: &str) -> io::Result<()> {
 
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                if key.code == KeyCode::Char('q') {
+                if handle_key_event(&mut app, key).await == true {
                     break;
-                }
-
-                match app.mode {
-                    AppMode::RepoList => {
-                        if key.code == KeyCode::Enter {
-                            app.select_current_repo().await;
-                        } else {
-                            events::handle_repo_list_keys(&mut app, key);
-                        }
-                    },
-                    AppMode::RepoDetail => events::handle_repo_detail_keys(&mut app, key),
-                    AppMode::Search => {
-                        if key.code == KeyCode::Enter {
-                            app.search_repositories().await;
-                        } else {
-                            events::handle_search_keys(&mut app, key);
-                        }
-                    }
                 }
             }
         }
