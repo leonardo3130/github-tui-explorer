@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::app::App;
 use crate::app::AppMode;
 use crate::app::LoadingState;
@@ -12,6 +10,22 @@ use ratatui::{
     text::Line,
     widgets::{Block, Borders, Padding, Paragraph, Row, Table, Wrap},
 };
+
+fn hex_to_color(hex: &str) -> Color {
+    // parse
+    let hex = hex.trim_start_matches('#');
+    if hex.len() == 6 {
+        if let (Ok(r), Ok(g), Ok(b)) = (
+            u8::from_str_radix(&hex[0..2], 16),
+            u8::from_str_radix(&hex[2..4], 16),
+            u8::from_str_radix(&hex[4..6], 16),
+        ) {
+            return Color::Rgb(r, g, b);
+        }
+    }
+    // fallback
+    Color::White
+}
 
 /// helper function to create a centered rect using up certain percentage of the available rect `r`
 fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
@@ -320,22 +334,9 @@ fn render_issue_popup(f: &mut Frame, area: Rect, app: &App) {
             spans.push(Span::from(","))
         }
 
-        let ratatui_color = Color::from_str(
-            label
-                .color
-                .clone()
-                .unwrap_or(String::from("white"))
-                .as_str(),
-        );
+        let color = hex_to_color(label.color.clone().unwrap_or(String::from("")).as_str());
 
-        let mut final_color = Color::White;
-
-        match ratatui_color {
-            Ok(color) => final_color = color,
-            Err(_) => {}
-        }
-
-        spans.push(Span::from(label.name.clone()).style(Style::default().fg(final_color)))
+        spans.push(Span::from(label.name.clone()).style(Style::default().fg(color)))
     }
 
     let labels_line = Line::from(spans);
