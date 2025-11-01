@@ -16,6 +16,7 @@ pub mod events;
 pub mod github;
 pub mod models;
 pub mod ui;
+pub mod utils;
 
 use app::App;
 
